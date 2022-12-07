@@ -1,0 +1,78 @@
+-- SP_SPS_LAYOUT_PROP_LOC_VEN --
+
+CREATE PROCEDURE SP_SPS_LAYOUT_PROP_LOC_VEN (
+
+IN DocKey int
+
+)
+
+AS
+BEGIN
+
+SELECT
+
+	T0."DocNum" || TO_VARCHAR(T0."TaxDate" , '/YYYY') AS "NºProposta",
+	T0."CardName" AS "Cliente",
+			
+	T4."FirstName" AS "PrimeiroNomeResponsável",
+	T4."MiddleName" AS "NomeDoMeioResponsável",
+	T4."LastName" AS "SobrenomeResponsável",
+	
+	T1."firstName" AS "PrimeiroNome",
+	T1."middleName" AS "NomeDoMeio",
+	T1."lastName" AS "Sobrenome",
+	'(' || T2."Phone2" || ') ' ||T2."Phone1" AS "Telefone",
+	T1."email" AS "E-mail",
+	T1."mobile" AS "Celular",
+	T3."City" AS "Cidade",
+	TO_VARCHAR(T0."DocDate" , 'DD/MM/YYYY') AS "Data",
+	T4."FirstName" AS "PrimeiroNomeResponsável",
+	T4."MiddleName" AS "NomeDoMeioResponsável",
+	T4."LastName" AS "SobrenomeResponsável",
+	
+				--RODAPÉ--
+	T2."PrintHeadr" AS "NomeEmpresa",
+	T3."Street" AS "RuaEmpresa",
+	T3."StreetNo" AS "Nº",
+	T3."Block" AS "Bairro",
+	T3."City" AS "Cidade",
+	T3."ZipCode" AS "CEP",
+	T2."TaxIdNum" AS "CNPJ",
+	T3."IntrntAdrs" AS "Site",
+	
+
+	T6."ItemName" AS "Equipamento",
+	T5."Price" AS "ValorMensalLocação",
+	T5."Price" AS "ValorMensalVenda",
+	T0."DocTotal" AS "ValorTotalLocação",
+	T0."DocTotal" AS "ValorTotalVenda",
+	
+	T0."PeyMethod" AS "FormaPagamento",
+	T0."DocDueDate" AS "PrazoDeEntrega",
+	T7."TrnspName" AS "Frete",
+	MONTHS_BETWEEN(TO_DATE (T0."DocDate"),TO_DATE(T0."DocDueDate"))||' Meses' AS "PeríodoLocação",
+	T2."PrintHeadr" || ' ' || T3."City" AS "LocalMontagemEquip",
+	T2."PrintHeadr" || ' ' || T3."City" AS "LocalTreinOp",
+	
+	
+	T2."PrintHeadr" AS "Assinatura1",
+	T1."firstName" AS "PrimeiroNome",
+	T1."middleName" AS "NomeDoMeio",
+	T1."lastName" AS "Sobrenome"
+		
+		
+	
+	
+FROM OQUT T0
+INNER JOIN OHEM T1 ON T0."ObjType" = T1."userId"
+INNER JOIN OADM T2 ON 1=1
+INNER JOIN ADM1 T3 ON 1=1
+INNER JOIN OCPR T4 ON T0."CardCode" = T4."CardCode"
+INNER JOIN QUT1 T5 ON T0."DocEntry" = T5."DocEntry"
+INNER JOIN OITM T6 ON T5."ItemCode" = T6."ItemCode"	
+INNER JOIN OSHP T7 ON 1=1
+WHERE T7."TrnspName" = 'FOB'
+
+AND T0."DocEntry" = :DocKey;
+
+END;
