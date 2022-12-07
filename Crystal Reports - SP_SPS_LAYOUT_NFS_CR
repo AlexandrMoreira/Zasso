@@ -1,0 +1,67 @@
+-- Modelo de Fatura --
+
+CREATE PROCEDURE SP_SPS_LAYOUT_NFS_CR (
+
+IN DocKey int
+
+)
+
+AS
+BEGIN
+
+SELECT 
+	-----------------------ZASSO-------------------------
+	T3."PrintHeadr" AS "Empresa",
+	T4."Street" AS "Rua",
+	T4."StreetNo" AS "Número",
+	T4."Building" AS "Bairro",
+	T4."City" AS "Cidade",
+	T3."TaxIdNum" AS "CNPJ",
+	'(' || T3."Phone2" || ') ' ||T3."Phone1" AS "Telefone",
+	
+	
+	------------------------PN-----------------
+	T0."DocNum" AS "NºFatura",
+	TO_VARCHAR(T0."DocDate" , 'DD/MM/YYYY') AS "DataEmissão",
+	TO_VARCHAR(T0."DocDueDate" , 'DD/MM/YYYY') AS "Vencimento",
+	T0."CardCode" AS "NºCliente/Contrato",
+	T0."CardName" AS "Destinatário",
+	T2."Password" AS "CNPJ",
+	T1."StreetB" AS "Rua",
+	T1."StreetNoB" AS "Número",
+	T1."ZipCodeB" AS "CEP",
+	T1."CityB" AS "Cidade",
+	T1."BlockB" AS "Bairro",
+	'(' || T2."Phone2" || ') ' ||T2."Phone1" AS "Telefone",
+	
+	-----------------------ITEM------------------
+	T5."Dscription" AS "DescriçãoItem",
+	T5."ItemCode" AS "SKU",
+	T5."Quantity" AS "Quantidade",
+	T5."Currency" || TO_VARCHAR(T5."Price" , '0.00') AS "Unitário",
+	T5."Currency" || TO_VARCHAR(T5."OpenSum" ,'0.00') AS "ValorTotal",
+	T5."Currency" || TO_VARCHAR(T5."VatSum" ,'0.00') AS "Imposto",
+	T5."Currency" || TO_VARCHAR(T0."DocTotal" ,'0.00') AS "ValorTotalFatura",
+
+	-----------------------RODAPÉ------------------
+	T4."City" AS "PraçaDePagamento",
+	TO_VARCHAR(T0."DocDueDate" , 'DD/MM/YYY') AS "Venc",
+	T5."Dscription" || T5."ItemCode" AS "DescItem",
+	T5."Currency" || TO_VARCHAR(T0."DocTotal" ,'0.00') AS "ValorMensal",
+	'ValidadeContrato' AS "VC"
+	
+	
+	
+		
+FROM OINV T0
+
+INNER JOIN INV12 T1 ON T0."DocEntry" = T1."DocEntry"
+INNER JOIN OCRD T2 ON T0."CardCode" = T2."CardCode"
+INNER JOIN OADM T3 ON 1=1
+INNER JOIN ADM1 T4 ON 1=1
+INNER JOIN INV1 T5 ON T0."DocEntry" = T5."DocEntry"
+INNER JOIN OITM T6 ON T5."ItemCode" = T6."ItemCode"
+
+WHERE T0."DocEntry" = :DocKey;
+
+END;
