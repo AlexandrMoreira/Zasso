@@ -1,4 +1,4 @@
--- SP_SPS_LAYOUT_PROP_LOC_VEN --
+-- Proposta de Locação e Venda --
 
 CREATE PROCEDURE SP_SPS_LAYOUT_PROP_LOC_VEN (
 
