@@ -1,0 +1,216 @@
+
+
+ALTER PROCEDURE SP_SPS_LAYOUT_PROP_LOC_VEN (
+
+IN DocKey int
+
+)
+
+AS
+BEGIN
+
+SELECT 
+
+	T0."DocNum" "Proposta Nº",
+	T0."CardName" "Nome Cliente",
+	T0."CntctCode" "Cód. Pessoa de Contato",
+	T0."SlpCode" "Cód. Vendedor",
+	T1."SlpName" "Nome Vendedor",
+	T1."Telephone" "Telefone",
+	T1."Mobil" "Celular",
+	T1."Email" "E-mail",
+	--T0."CntctCode" "Pessoa de Contato"--
+	T2."FirstName" "Nome Pessoa de Contato",
+	T2."LastName" "Sobrenome Pessoa de Contato",
+	T5."trgtPath" || T5."FileName" "IMG",
+	T5."trgtPath" || T5."FileName" ||'27012023163425100650' "IMG",
+	T3."Dscription" "DescriçãoItem",
+	T3."Quantity" "Qtde",
+	CAST(ROUND((T3."Price"),2) AS DECIMAL (28,2)) "ValorUnitário",
+	T3."LineTotal" AS "TotalLinha",
+	CAST(ROUND((T0."DocTotal"),2) AS DECIMAL (28,2)) "Total",
+	--TO_VARCHAR(T6."EndDate", 'DD/MM/YYYY') "PeríodoLocação",
+	MONTHS_BETWEEN(TO_DATE(T0."DocDate"),TO_DATE(T0."DocDueDate"))||' Meses' AS "PeríodoLocação",
+	
+	CAST(ROUND((T0."DocTotal"),2) AS DECIMAL (28,2)) "Valor_de_Locação",
+	T7."PymntGroup" "CondiçãoPgto",
+	T0."PeyMethod" "FormaPgot",
+	T8."TrnspName" "Frete",
+	T0."DocDueDate" "ValidadeProposta",
+	T9."PrintHeadr" || ' Indústria e Comércio Ltda.' "Zasso",
+	DAYS_BETWEEN(CURRENT_DATE,TO_DATE(T0."U_SPS_PrzEntrega"))||' dias' "Prazo de Entrega",
+	T0."U_SPS_LocMontEquip" "Local de Montagem",
+	T0."U_SPS_LocTreiOp" "Local de Treinamento",
+	T6."StartDate" "DataInício",
+	
+	----- ABA DE INFOS. TÉCNICAS -----
+
+	T4."U_SPS_Modelo" "Modelo",
+	T4."U_SPS_Aplicador" "Aplicador",
+	T4."U_SPS_TipoEquip" "Tipo de Equip",
+	T4."U_SPS_Dimensoes" "DimensõesAplicador",
+	T4."U_SPS_PesoTotal" "PestoTotal",
+	T4."U_SPS_TensaoNom" "TensãoNominal",
+	T4."U_SPS_TensaoTrab" "TensãoTrabalho",
+	T4."U_SPS_Corrent" "CorrenteNominal",
+	T4."U_SPS_areatrab" "ÁreaAbrangência",
+	T4."U_SPS_recomend" "Recom.Uso",
+	T4."U_SPS_CompAddc" "Comp.Adicionais",
+	T4."U_SPS_ReqImple" "Req.Gerais",
+	T4."U_SPS_ReqGeral" "Req.Implemento",
+
+	
+	----- ABA DE ATRIBUIÇÕES -----
+
+	/*T0."U_SPS_Atrib0" "Manual",
+	T0."U_SPS_Atrib1" "Frete",
+	T0."U_SPS_Atrib2" "Manut. Técnica",
+	T0."U_SPS_Atrib3" "Manut. Desgaste Natural",
+	T0."U_SPS_Atrib4" "Manut. por Mau-uso",
+	T0."U_SPS_Atrib5" "Seguro",
+	T0."U_SPS_Atrib6" "Combustível",
+	T0."U_SPS_Atrib7" "Gestão da Operação",
+	T0."U_SPS_Atrib8" "Operador Sr.",
+	T0."U_SPS_Atrib9" "Operador Jr.",
+	T0."U_SPS_Atrib10" "Treinamento",
+	T0."U_SPS_Atrib11" "Viagem",
+	T0."U_SPS_Atrib12" "Alimentação",
+	T0."U_SPS_Atrib13" "Hospedagem",
+	T0."U_SPS_Atrib14" "Segurança",
+	T0."U_SPS_Atrib15" "Plataforma",
+	T0."U_SPS_AtribMenu" "Custo/Responsabilidade",
+*/	
+	
+CASE
+	WHEN T0."U_SPS_Atrib0" = 1 THEN 'Zasso               Cliente'
+	WHEN T0."U_SPS_Atrib0" = 2 THEN 'Zasso               Zasso'
+	WHEN T0."U_SPS_Atrib0" = 3 THEN 'Cliente             Zasso'	
+	WHEN T0."U_SPS_Atrib0" = 4 THEN 'Cliente             Cliente'
+END AS "Manual",
+
+CASE
+	WHEN T0."U_SPS_Atrib1" = 1 THEN 'Zasso               Cliente'
+	WHEN T0."U_SPS_Atrib1" = 2 THEN 'Zasso               Zasso'
+	WHEN T0."U_SPS_Atrib1" = 3 THEN 'Cliente             Zasso'	
+	WHEN T0."U_SPS_Atrib1" = 4 THEN 'Cliente             Cliente'
+END AS "Frete",
+
+CASE
+	WHEN T0."U_SPS_Atrib2" = 1 THEN 'Zasso               Cliente'
+	WHEN T0."U_SPS_Atrib2" = 2 THEN 'Zasso               Zasso'
+	WHEN T0."U_SPS_Atrib2" = 3 THEN 'Cliente             Zasso'	
+	WHEN T0."U_SPS_Atrib2" = 4 THEN 'Cliente             Cliente'
+END AS "Manut.Técnica",
+
+CASE
+	WHEN T0."U_SPS_Atrib3" = 1 THEN 'Zasso               Cliente'
+	WHEN T0."U_SPS_Atrib3" = 2 THEN 'Zasso               Zasso'
+	WHEN T0."U_SPS_Atrib3" = 3 THEN 'Cliente             Zasso'	
+	WHEN T0."U_SPS_Atrib3" = 4 THEN 'Cliente             Cliente'
+END AS "Manut.DesgasteNatural",
+
+CASE
+	WHEN T0."U_SPS_Atrib4" = 1 THEN 'Zasso               Cliente'
+	WHEN T0."U_SPS_Atrib4" = 2 THEN 'Zasso               Zasso'
+	WHEN T0."U_SPS_Atrib4" = 3 THEN 'Cliente             Zasso'	
+	WHEN T0."U_SPS_Atrib4" = 4 THEN 'Cliente             Cliente'
+END AS "Manut.MauUso",
+
+CASE
+	WHEN T0."U_SPS_Atrib5" = 1 THEN 'Zasso               Cliente'
+	WHEN T0."U_SPS_Atrib5" = 2 THEN 'Zasso               Zasso'
+	WHEN T0."U_SPS_Atrib5" = 3 THEN 'Cliente             Zasso'	
+	WHEN T0."U_SPS_Atrib5" = 4 THEN 'Cliente             Cliente'
+END AS "Seguro",
+
+CASE
+	WHEN T0."U_SPS_Atrib6" = 1 THEN 'Zasso               Cliente'
+	WHEN T0."U_SPS_Atrib6" = 2 THEN 'Zasso               Zasso'
+	WHEN T0."U_SPS_Atrib6" = 3 THEN 'Cliente             Zasso'	
+	WHEN T0."U_SPS_Atrib6" = 4 THEN 'Cliente             Cliente'
+END AS "Combustível",
+
+CASE
+	WHEN T0."U_SPS_Atrib7" = 1 THEN 'Zasso               Cliente'
+	WHEN T0."U_SPS_Atrib7" = 2 THEN 'Zasso               Zasso'
+	WHEN T0."U_SPS_Atrib7" = 3 THEN 'Cliente             Zasso'	
+	WHEN T0."U_SPS_Atrib7" = 4 THEN 'Cliente             Cliente'
+END AS "GestãoOperação",
+
+CASE
+	WHEN T0."U_SPS_Atrib8" = 1 THEN 'Zasso               Cliente'
+	WHEN T0."U_SPS_Atrib8" = 2 THEN 'Zasso               Zasso'
+	WHEN T0."U_SPS_Atrib8" = 3 THEN 'Cliente             Zasso'	
+	WHEN T0."U_SPS_Atrib8" = 4 THEN 'Cliente             Cliente'
+END AS "OperadorSr.",
+
+CASE
+	WHEN T0."U_SPS_Atrib9" = 1 THEN 'Zasso               Cliente'
+	WHEN T0."U_SPS_Atrib9" = 2 THEN 'Zasso               Zasso'
+	WHEN T0."U_SPS_Atrib9" = 3 THEN 'Cliente             Zasso'	
+	WHEN T0."U_SPS_Atrib9" = 4 THEN 'Cliente             Cliente'
+END AS "OperadorJr.",
+
+CASE
+	WHEN T0."U_SPS_Atrib10" = 1 THEN 'Zasso               Cliente'
+	WHEN T0."U_SPS_Atrib10" = 2 THEN 'Zasso               Zasso'
+	WHEN T0."U_SPS_Atrib10" = 3 THEN 'Cliente             Zasso'	
+	WHEN T0."U_SPS_Atrib10" = 4 THEN 'Cliente             Cliente'
+END AS "Treinamento",
+
+CASE
+	WHEN T0."U_SPS_Atrib11" = 1 THEN 'Zasso               Cliente'
+	WHEN T0."U_SPS_Atrib11" = 2 THEN 'Zasso               Zasso'
+	WHEN T0."U_SPS_Atrib11" = 3 THEN 'Cliente             Zasso'	
+	WHEN T0."U_SPS_Atrib11" = 4 THEN 'Cliente             Cliente'
+END AS "Viagem",
+
+CASE
+	WHEN T0."U_SPS_Atrib12" = 1 THEN 'Zasso               Cliente'
+	WHEN T0."U_SPS_Atrib12" = 2 THEN 'Zasso               Zasso'
+	WHEN T0."U_SPS_Atrib12" = 3 THEN 'Cliente             Zasso'	
+	WHEN T0."U_SPS_Atrib12" = 4 THEN 'Cliente             Cliente'
+END AS "Alimentação",
+
+CASE
+	WHEN T0."U_SPS_Atrib13" = 1 THEN 'Zasso               Cliente'
+	WHEN T0."U_SPS_Atrib13" = 2 THEN 'Zasso               Zasso'
+	WHEN T0."U_SPS_Atrib13" = 3 THEN 'Cliente             Zasso'	
+	WHEN T0."U_SPS_Atrib13" = 4 THEN 'Cliente             Cliente'
+END AS "Hospedagem",
+
+CASE
+	WHEN T0."U_SPS_Atrib14" = 1 THEN 'Zasso               Cliente'
+	WHEN T0."U_SPS_Atrib14" = 2 THEN 'Zasso               Zasso'
+	WHEN T0."U_SPS_Atrib14" = 3 THEN 'Cliente             Zasso'	
+	WHEN T0."U_SPS_Atrib14" = 4 THEN 'Cliente             Cliente'
+END AS "Segurança",
+
+CASE
+	WHEN T0."U_SPS_Atrib15" = 1 THEN 'Zasso               Cliente'
+	WHEN T0."U_SPS_Atrib15" = 2 THEN 'Zasso               Zasso'
+	WHEN T0."U_SPS_Atrib15" = 3 THEN 'Cliente             Zasso'	
+	WHEN T0."U_SPS_Atrib15" = 4 THEN 'Cliente             Cliente'
+END AS "Plataforma (Caminhão ou Trator)",
+
+CASE
+	WHEN T0."U_SPS_AtribMenu" is null THEN 'Custo/Responsabilidade'
+END AS "Custo/Responsabilidade"
+
+
+FROM OQUT T0
+INNER JOIN QUT1 T3 ON T0."DocEntry" = T3."DocEntry"
+INNER JOIN OSLP T1 ON T0."SlpCode" = T1."SlpCode"
+LEFT JOIN OCPR T2 ON T0."CntctCode" = T2."CntctCode"
+INNER JOIN OITM T4 ON T3."ItemCode" = T4."ItemCode"	
+LEFT JOIN ATC1 T5 ON T4."AtcEntry" = T5."AbsEntry"
+LEFT JOIN OOAT T6 ON T3."AgrNo" = T6."AbsID"
+INNER JOIN OCTG T7 ON T0."GroupNum" = T7."GroupNum"
+LEFT JOIN OSHP T8 ON T0."TrnspCode" = T8."TrnspCode"
+INNER JOIN OADM T9 ON 1=1
+
+
+WHERE T0."DocEntry" = :DocKey;
+
+
+END;
