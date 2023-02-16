@@ -1,0 +1,1258 @@
+CREATE PROCEDURE SPS_SP_TRANSACTIONNOTIFICATION ( in object_type nvarchar(30),
+	 -- SBO Object Type
+ in transaction_type nchar(1),
+	 -- [A]dd, [U]pdate, [D]elete, [C]ancel, C[L]ose
+ in num_of_cols_in_key int,
+	 in list_of_key_cols_tab_del nvarchar(255),
+	 in list_of_cols_val_tab_del nvarchar(255),
+	 inout error int,
+	 -- Result (0 for no error)
+ inout error_message nvarchar (200) -- Error string to be displayed
+ ) LANGUAGE SQLSCRIPT AS -- Return values
+
+BEGIN 
+
+-----------------------------------------------------------------------------------------------------------
+	---- ALISSON RAMOS PEREIRA --
+	---- [OCRD] UPDATE DO CNPJ NO CAMPO SENHA --
+	---- Criado: Alex Azevedo : Alterado para Hana por: Alisson Ramos Pereira --
+	---- Data Criação: 12/12/2017   : Alterado em: 21/09/2018 --
+	---- AJUSTE REALIZADO EM 15/03/2019 - ALISSON RAMOS
+	-----------------------------------------------------------------------------------------------------------
+	IF (:object_type = '2' and (:transaction_type = 'A' or :transaction_type = 'U'))
+	THEN
+			
+		DECLARE taxId nvarchar(100) := '';
+		DECLARE crd7count int := 0;
+		
+		SELECT
+			 COUNT(*) into crd7count 
+		FROM CRD7 
+		WHERE "Address" = '' 
+			and crd7."CardCode" = :list_of_cols_val_tab_del;
+	 	 
+		IF (:crd7count > 0)
+		THEN 
+			
+			SELECT
+				CASE WHEN  IFNULL(CRD7."TaxId0",'') = '' THEN CRD7."TaxId4"
+				ELSE  CRD7."TaxId0" END
+				-- IFNULL(CRD7."TaxId0",CRD7."TaxId4") 
+				 into taxId 
+			FROM CRD7 
+			WHERE "Address" = '' 
+				and CRD7."CardCode" = :list_of_cols_val_tab_del;
+			
+			UPDATE OCRD 
+				SET OCRD."Password" = :taxId 
+			FROM OCRD
+			WHERE OCRD."CardCode" = :list_of_cols_val_tab_del;		 
+		END IF;		 
+	END IF;
+	
+	 -- ==========================================================================================================
+	 -- AUTHOR: SPS CONSULTORIA - ALEX AZEVEDO
+	 -- CREATE DATE: 14/12/2017
+	 -- ALTERADO: SPS CONSULTORIA - ALEX AZEVEDO
+	 -- ALTERADO PARA HANA POR: Alisson Ramos Pereira - 21/09/2018
+	 -- DESCRIPTION: - Validação no cadastro do PN 
+	 ---- AJUSTE REALIZADO EM 15/03/2019 - ALISSON RAMOS
+	 -- ==========================================================================================================
+	 ------ Verifica se no cadastro foi incluido cnpj/cpf e inscrição estadual        
+	
+	IF ( :object_type = '2' AND ( :transaction_type='A' or :transaction_type='U' ) )
+	THEN 
+		--DECLARE GRP INT :=0;
+		DECLARE LEAD INT;
+		DECLARE CNAE INT;
+		DECLARE INSC VARCHAR(255);
+		DECLARE CNPJ VARCHAR(255);  
+		DECLARE CPF VARCHAR(255);  
+		DECLARE OCRDEXISTS INT;
+		 
+		--SELECT COUNT(*) INTO GRP FROM OCRD WHERE ocrd."CardCode" = :list_of_cols_val_tab_del 
+			--AND "GroupCode" IN ('104', '109', '108');
+			
+		--IF (GRP = 0)
+		--THEN	
+					 		 
+		--SELECT
+		--	 COUNT(*)
+		--INTO 
+			--LEAD 
+		--FROM OCRD 
+		--WHERE ocrd."CardCode" = :list_of_cols_val_tab_del 
+			--AND "GroupCode" NOT IN ('104', '109', '108');
+	 
+	 
+		--IF :LEAD > 0 
+		--THEN 
+			SELECT
+				COUNT(*) 
+			INTO 
+				OCRDEXISTS 
+			FROM CRD7 
+			WHERE CRD7."CardCode" = :list_of_cols_val_tab_del 
+				AND "AddrType" = 'S' 
+				AND IFNULL("Address",'') <> ''
+			;
+				 	 
+			IF :OCRDEXISTS > 0 
+			THEN 
+				SELECT TOP 1 
+				 	IFNULL("TaxId0",'')
+					,IFNULL("TaxId1",'') 
+					,IFNULL("TaxId4",'') 
+					,IFNULL("CNAEId", 0) 
+				INTO 
+					CNPJ 
+					,INSC 
+					,CPF 
+					,CNAE 
+				FROM CRD7 
+				WHERE "CardCode" = :list_of_cols_val_tab_del 
+					--AND "AddrType" = 'S' 
+					AND IFNULL("Address",'') = '' 
+				;
+	 			
+				IF(:CNPJ = '' AND :CPF = '' ) 
+				THEN 
+					error := 1000 ; 
+				 	error_message := '[SPS] Favor Informar o CPF ou CNPJ E Inscrição Estadual!';
+			 
+				END IF;
+	 
+			END IF;
+			
+			
+			 -------------------------------------------------------------------------------------------------------        
+			 -- ENDEREÇOS        
+			 --------------------------------------------------------------------------------------------------------         
+			SELECT
+				 COUNT(*) 
+			INTO 
+			 	OCRDEXISTS 
+			FROM CRD1 
+				INNER JOIN OCRD ON OCRD."CardCode" = CRD1."CardCode" 
+			WHERE CRD1."CardCode" = :list_of_cols_val_tab_del
+				;
+		 
+			IF :OCRDEXISTS >= 2 
+			THEN 
+				DECLARE VIQTENDERECOS INT := 0;
+		 		DECLARE VIADDRESS INT := 0;
+		 		DECLARE VIAddrType INT := 0;
+				DECLARE VIStreet INT := 0;
+				DECLARE VIStreetNo INT := 0;
+				DECLARE VIZipCode INT := 0;
+				DECLARE VIZipCodeSize INT := 0;
+				DECLARE VIBlock INT := 0;
+				DECLARE VICity INT := 0;
+				DECLARE VIState INT := 0;
+				DECLARE VICounty INT := 0;
+				DECLARE VICOUNTRY INT := 0;
+		 		DECLARE INDIE INT   := 0;
+		
+				SELECT TOP 1 
+					CASE 
+						WHEN IFNULL(CRD1."Address",'') = '' 
+						THEN :VIADDRESS + 1 
+						ELSE :VIADDRESS 
+					END 
+					
+					,CASE 
+						WHEN IFNULL(CRD1."AddrType",'') = '' 
+						THEN :VIAddrType + 1 
+						ELSE :VIAddrType 
+					END 
+					
+					,CASE WHEN IFNULL(CRD1."Street",
+					 '') = '' 
+				THEN :VIStreet + 1 
+				ELSE :VIStreet 
+				END ,
+					CASE WHEN IFNULL(CRD1."StreetNo",
+					 '') = '' 
+				THEN :VIStreetNo + 1 
+				ELSE :VIStreetNo 
+				END ,
+					CASE WHEN IFNULL(CRD1."ZipCode",
+					 '') = '' 
+				THEN :VIZipCode + 1 
+				ELSE :VIZipCode 
+				END ,
+					CASE WHEN IFNULL(CRD1."ZipCode",
+					 '') = '' 
+				THEN 1 
+				ELSE LENGTH(RTRIM(LTRIM(crd1."ZipCode"))) 
+				END ,
+					CASE WHEN IFNULL(CRD1."Block",
+					 '') = '' 
+				THEN :VIBlock + 1 
+				ELSE :VIBlock 
+				END ,
+					CASE WHEN IFNULL(CRD1."City",
+					 '') = '' 
+				THEN :VICity + 1 
+				ELSE :VICity 
+				END ,
+					CASE WHEN IFNULL(CRD1."State",
+					 '') = '' 
+				THEN :VIState + 1 
+				ELSE :VIState 
+				END ,
+					CASE WHEN IFNULL(CRD1."County",
+					 '') = '' 
+				THEN :VICounty + 1 
+				ELSE :VICounty 
+				END ,
+					CASE WHEN IFNULL(CRD1."Country",
+					 '') = '' 
+				THEN :VICOUNTRY + 1 
+				ELSE :VICOUNTRY 
+				END 
+				,CASE	WHEN IFNULL(CRD1."U_SKILL_indIEDest", '') = '' THEN  :INDIE + 1 ELSE :INDIE 		END
+				 
+				INTO VIADDRESS ,
+					VIAddrType ,
+					VIStreet ,
+					VIStreetNo ,
+					VIZipCode ,
+					VIZipCodeSize ,
+					VIBlock ,
+					VICity ,
+					VIState ,
+					VICounty ,
+					VICOUNTRY ,
+					INDIE			  
+				 
+				FROM CRD1 
+				INNER JOIN OCRD ON OCRD."CardCode" = CRD1."CardCode" 
+				WHERE ocrd."CardCode" = :list_of_cols_val_tab_del
+				;
+				
+				SELECT
+					 COUNT(*) 
+				INTO OCRDEXISTS 
+				FROM DUMMY 
+				WHERE :VIADDRESS <> 0 
+					OR :VIAddrType <> 0 
+					OR :VIStreet <> 0 
+					OR :VIStreetNo <> 0 
+					OR :VIZipCode <> 0 
+					OR :VIZipCodeSize <> 8 
+					OR :VIBlock <> 0 
+					OR :VICity <> 0 
+					OR :VIState <> 0 
+					OR :VICounty <> 0 
+					OR :VICOUNTRY <> 0
+					OR :INDIE <> 0 
+				;
+				 
+				IF :OCRDEXISTS > 0 
+				THEN 
+				
+					SELECT
+						 CASE WHEN :VICOUNTRY > 0 
+							THEN 9999 WHEN :VICounty > 0 
+							THEN 9999 WHEN :VIState > 0 
+							THEN 9999 WHEN :VICity > 0 
+							THEN 9999 WHEN :VIBlock > 0 
+							THEN 9999 WHEN :VIZipCodeSize > 9 
+							and :VIZipCodeSize < 8 
+							THEN 9999 WHEN :VIZipCode > 0 
+							THEN 9999 WHEN :VIStreetNo > 0 
+							THEN 9999 WHEN :VIStreet > 0 
+							THEN 9999 WHEN :VIAddrType > 0 
+							THEN 9999 WHEN :VIADDRESS > 0 
+							THEN 9999 
+							WHEN :INDIE > 0 			THEN 9999  
+						ELSE error 
+						END ,
+						CASE WHEN :VICOUNTRY > 0 
+							THEN '[SPS] Favor informar o País !' WHEN :VICounty > 0 
+							THEN '[SPS] Favor informar o Município !' WHEN :VIState > 0 
+							THEN '[SPS] Favor informar o Estado !' WHEN :VICity > 0 
+							THEN '[SPS] Favor informar a Cidade !' WHEN :VIBlock > 0 
+							THEN '[SPS] Favor infomar o Bairro !' WHEN :VIZipCodeSize > 9 
+							and :VIZipCodeSize < 8 
+							THEN '[SPS] CEP deve ter 8 caracteres !' WHEN :VIZipCode > 0 
+							THEN '[SPS] Favor informar o CEP !' WHEN :VIStreetNo > 0 
+							THEN '[SPS] Favor informar o número do endereço !' WHEN :VIStreet > 0 
+							THEN '[SPS] Favor informar a Rua !' WHEN :VIAddrType > 0 
+							THEN '[SPS] Favor informar o tipo de Logradouro !' WHEN :VIADDRESS > 0 
+							THEN '[SPS] Favor informar o ID do endereço !' 
+							WHEN :INDIE > 0 THEN '[SPS] Favor informar o Indicador do IE !'  
+						ELSE :error_message 
+						END 
+					INTO 
+						error ,
+						error_message 
+					FROM DUMMY
+					;
+				 
+				END IF;
+				 
+			ELSE 
+				error := 8850;
+				error_message := '[SPS] Favor registrar 2 Tipos de endereços !'; 
+				 
+			END IF;
+			 --*****************************************************************************************************************        
+			 ---------------------------------------------------------------------------------------        
+			 -- DADOS PADRÕES DO CLIENTE        
+			 ---------------------------------------------------------------------------------------        
+			SELECT
+				 COUNT(*) 
+			INTO 
+				OCRDEXISTS 
+			FROM OCRD 
+			WHERE OCRD."CardCode" = :list_of_cols_val_tab_del
+			;
+			 
+			IF :OCRDEXISTS > 0 
+			THEN 
+				 --DECLARE VSTELEFONE VARCHAR(15); 
+				-- DECLARE VSDDD VARCHAR(15); 
+				 DECLARE VSEMAIL VARCHAR(255);  
+				 DECLARE VSNOME VARCHAR(255);
+				 
+				 SELECT
+					--IFNULL("Phone1",'') ,
+					--IFNULL("Phone2", '') ,
+					IFNULL("E_Mail", '') ,
+					IFNULL("CardName",'') 
+				INTO 
+					--VSTELEFONE ,
+					--VSDDD ,
+					VSEMAIL ,
+					VSNOME 
+				FROM ocrd 
+				WHERE ocrd."CardCode" = :list_of_cols_val_tab_del
+				;
+			 /*
+				IF Length(Ltrim(Rtrim(:VSTELEFONE))) > 9 
+					OR Length(Ltrim(Rtrim(:VSTELEFONE))) < 8 
+				THEN 
+					error := 8890;
+			 		error_message := '[SPS] O número de telefone deve ter 8 ou 9 caracteres !'; 
+			
+				ELSEIF Length(Ltrim(Rtrim(:VSDDD))) <> 2 
+				THEN 
+				
+					error := 8880; 
+					error_message := '[SPS] O DDD deve ter 2 caracteres !';    
+			 
+			 	ELSEIF Length(Ltrim(Rtrim(:VSDDD))) = 0 
+			 	THEN 
+					error := 8880; 
+					error_message := '[SPS] Favor informar o DDD !'; 
+			 
+			 	ELSEIF LenGTH(Ltrim(Rtrim(IFnull(:VSTELEFONE,'')))) = 0 
+				THEN 
+					error := 8870;
+			 		error_message := '[SPS] Favor informar o Telefone !'; 
+			
+			ELSEIF Length(Ltrim(Rtrim(:VSTELEFONE))) > 9 
+					OR Length(Ltrim(Rtrim(:VSTELEFONE))) < 8 
+				THEN 
+					error := 8890;  
+					error_message := '[SPS] O número de telefone deve ter 8 ou 9 caracteres !'; 
+					*/
+				IF Length(Ltrim(Rtrim(ifnull(:VSEMAIL, '')))) = 0 
+				THEN 
+					error := 8900;
+			 		error_message := '[SPS] Favor informar o e-mail !';
+			 
+			 	IF Length(Ltrim(Rtrim(ifnull(:VSNOME, '')))) = 0 
+				THEN 
+					error := 8860;
+			 		error_message := '[SPS] Favor informar o Nome do Parceiro !';
+			 		
+
+			 	END IF;
+			 END IF; 
+			END IF;
+		END IF;
+	--END IF;
+--END IF;
+ -------------------------------------------------------------------------------------------------------------------------
+ -- SPS CONSULTORIA--
+ -- Autor: Alex Azevedo
+ -- Data: 12/01/2017
+ -- Titulo: Nao permitir lancamento contabil negativo
+ -- Lancamento contabil manual
+ -------------------------------------------------------------------------------------------------------------------------
+ 
+IF (:object_type ='30' 
+	AND (:transaction_type='A' 
+		or :transaction_type='U')) 
+THEN DECLARE Negativo INT
+;
+ SELECT
+	 COUNT(*) 
+INTO Negativo 
+FROM JDT1 
+WHERE "Debit" < 0 
+AND "TransId" =:list_of_cols_val_tab_del
+;			
+ 
+IF :Negativo > 0 
+THEN error := -1
+;
+ error_message := 'Lançamento contábil com valor negativo.'
+;
+ 
+END 
+IF
+;
+ 
+END 
+IF
+;
+-------------------------------------------------------------------------------------------------------------------------
+ ------ ALEX AZEVDO SPS CONSULTORIA--
+ ------ PREENCHIMENTO OBRIGATORIO DO CENTRO DE CUSTO --
+ ------ Criado: Alex Azevedo --
+ ------ Data Criação: 09/05/2018--
+ -------------------------------------------------------------------------------------------------------------------------
+ -------------------------SOLICITAÇÃO DE COMPRA------------------------------------------------------------------------
+ 
+IF (:object_type='1470000113' AND (:transaction_type='A' or :transaction_type='U')) THEN
+
+    DECLARE SC INT;
+
+    SELECT
+         COUNT(*)
+    INTO
+        SC 
+    FROM
+        OPRQ T0
+        INNER JOIN PRQ1 T1 ON T0."DocEntry" = T1."DocEntry"
+    WHERE
+        (IFNULL(T1."OcrCode",'')='' OR IFNULL(T1."OcrCode2",'')=''OR IFNULL(T1."Usage",'0')='0')
+        AND T0."DataSource" <> 'N'
+        AND T1."DocEntry" = :list_of_cols_val_tab_del;
+
+    IF SC >0 THEN
+        error := '1470000113';
+        error_message := '[SPS] - PREECHIMENTO OBRIGATORIO DO DEPARTAMENTO PROJETO E UTILIZACAO'
+		;
+    END
+	IF
+	;
+
+	END
+	IF
+	;
+
+ -------------------------PEDIDO DE COMPRA------------------------------------------------------------------------
+ 
+IF (:object_type='22' 
+	AND (:transaction_type='A' 
+		or :transaction_type='U')) 
+THEN DECLARE PC INT
+;
+ SELECT
+	 COUNT(*)
+INTO PC 
+FROM OPOR T0 INNER JOIN POR1 T1 ON T0."DocEntry" = T1."DocEntry"
+             INNER JOIN OACT T2 ON T1."AcctCode" = T2."AcctCode"
+WHERE (IFNULL(T1."OcrCode",'')='' OR IFNULL(T1."OcrCode2",'')=''OR IFNULL(T1."Usage",'0')='0') and T1."DocEntry" = :list_of_cols_val_tab_del
+AND T2."Dim1Relvnt" = 'Y'
+;
+ 
+IF PC >0 
+THEN error := '22'
+;
+ error_message := '[SPS] - PREECHIMENTO OBRIGATORIO DO DEPARTAMENTO PROJETO E UTILIZACAO'
+;
+ 
+END 
+IF
+;
+ 
+END 
+IF
+;
+
+ -------------------------RECEBIMENTO DE MERCADORIA------------------------------------------------------------------------
+ 
+IF (:object_type='20' 
+	AND (:transaction_type='A' 
+		or :transaction_type='U')) 
+THEN DECLARE RM INT
+;
+ SELECT
+	 COUNT(*)
+INTO RM 
+FROM PDN1 T0 
+WHERE (T0."OcrCode" is null 
+	or T0."OcrCode2" is null ) 
+and "DocEntry" = :list_of_cols_val_tab_del
+;
+ 
+IF RM >0 
+THEN error := '20'
+;
+ error_message := '[SPS] - PREECHIMENTO OBRIGATORIO DO DEPARTAMENTO E PROJETO'
+;
+ 
+END 
+IF
+;
+ 
+END 
+IF
+;	
+
+ -------------------------NOTA FISCAL DE ENTRADA------------------------------------------------------------------------
+
+IF (:object_type='18' 
+	AND (:transaction_type='A'or :transaction_type='U')) 
+THEN DECLARE NE INT
+;
+ SELECT
+	 COUNT(*)
+
+INTO NE 
+FROM OPCH T0 INNER JOIN PCH1 T1 ON T0."DocEntry" = T1."DocEntry"
+             INNER JOIN OACT T2 ON T1."AcctCode" = T2."AcctCode"
+WHERE (T1."OcrCode" is null ) and T1."DocEntry" = :list_of_cols_val_tab_del
+AND T2."Dim1Relvnt" = 'Y'
+;
+ 
+IF NE >0 
+THEN error := '22'
+;
+ error_message := '[SPS] - PREECHIMENTO OBRIGATORIO DO DEPARTAMENTO E PROJETO'
+;
+ 
+END 
+IF
+;
+ 
+END 
+IF
+;		
+
+ --------------------------PEDIDO DE VENDA---------------------------------------------------------------------
+ /*
+IF (:object_type='17' 
+	AND (:transaction_type='A' 
+		or :transaction_type='U')) 
+THEN DECLARE PV INT
+;
+ SELECT
+	 COUNT(*) 
+INTO PV 
+FROM RDR1 T0
+INNER JOIN ORDR T1 ON T0."DocEntry" = T1."DocEntry"
+WHERE (T0."OcrCode" is null 
+	or T0."OcrCode2" is null)
+
+and T0."DocEntry" = :list_of_cols_val_tab_del
+;
+ 
+IF PV > 0 
+THEN error := '17'
+;
+ error_message := '[SPS] - PREECHIMENTO OBRIGATORIO DO DEPARTAMENTO E PROJETO'
+;
+ 
+END 
+IF
+;
+ 
+END 
+IF
+;
+ --------------------------NOTA FISCAL DE SAIDA---------------------------------------------------------------------
+ 
+IF (:object_type='13' 
+	AND (:transaction_type='A' 
+		or :transaction_type='U')) 
+THEN DECLARE NS INT
+;
+ SELECT
+	 COUNT(*) 
+INTO NS 
+FROM INV1 T0 
+WHERE (T0."OcrCode" is null or T0."OcrCode2" is null )
+
+and "DocEntry" = :list_of_cols_val_tab_del
+;
+ 
+IF NS > 0 
+THEN error := '13'
+;
+ error_message := '[SPS] - PREECHIMENTO OBRIGATORIO DO CENTRO DE CUSTO'
+;
+ 
+END 
+IF
+;
+ 
+END 
+IF
+;
+ ------------------------ADIANTAMENTO FORNECEDOR--------------------------------------------------------------
+ 
+IF (:object_type='204' 
+	AND (:transaction_type='A' 
+		or :transaction_type='U')) 
+THEN DECLARE FR INT
+;
+ SELECT
+	 COUNT(*) 
+INTO FR 
+FROM DPO1 T0 
+WHERE (T0."OcrCode" is null 
+	or T0."OcrCode2" is null )
+
+AND "DocEntry" = :list_of_cols_val_tab_del
+;
+ 
+IF FR > 0 
+THEN error := '204'
+;
+ error_message := '[SPS] - PREECHIMENTO OBRIGATORIO DO CENTRO DE CUSTO'
+;
+ 
+END 
+IF
+;
+ 
+END 
+IF
+;
+
+
+*/
+ -------------------------------------------------------------------------------------------------------------------------
+ --Criado por: Alex Azevedo - SPS Consultoria
+ --Data:12/12/2017
+ --Descrição: Atualiza observação do diário no CP e no lançamento contábil
+ -------------------------------------------------------------------------------------------------------------
+ 
+IF (:object_type = '46' AND (:transaction_type='A')) 
+
+THEN 
+
+DECLARE TEXTOCP NVARCHAR(50);
+DECLARE CP INT;
+DECLARE PGTOCONTA INT;
+
+SELECT COUNT(*) INTO PGTOCONTA FROM OVPM WHERE OVPM."DocEntry" = :list_of_cols_val_tab_del AND "DocType" = 'A';
+
+IF (:PGTOCONTA = 0)
+THEN
+ SELECT
+	"fn_SPS_ObsCP"(:list_of_cols_val_tab_del) INTO TEXTOCP 
+FROM DUMMY;
+
+SELECT "DocNum" INTO CP FROM OVPM WHERE OVPM."DocEntry" = :list_of_cols_val_tab_del;
+
+
+UPDATE OVPM 
+SET OVPM."JrnlMemo" = :TEXTOCP 
+WHERE OVPM."DocEntry" = :list_of_cols_val_tab_del;
+
+ Update OJDT 
+set OJDT."Memo" = :TEXTOCP 
+where "BaseRef" = :CP 
+and "TransType"='46';
+
+Update JDT1
+set JDT1."LineMemo" = :TEXTOCP
+from JDT1
+join OJDT on JDT1."TransId" = OJDT."TransId"
+where OJDT."BaseRef" = :CP and OJDT."TransType"='46';
+
+END IF; 
+END IF;  
+-------------------------------------------------------------------------------------------------------------------------
+ --Criado por: Alisson Ramos - SPS Consultoria
+ --Data:13/05/2019
+ --Descrição: Atualiza observação do diário no lançamento contábil na atualizacao de boleto
+ --Alterado por: Joao Veiga - SPS Consultoria
+ --Data:09/07/2019
+ --Descrição: Cria JDT1.LineMemo por linha
+ ------------------------------------------------------------------------------------------------------------
+
+IF (:object_type = '182' AND (:transaction_type='A')) 
+THEN 
+
+DECLARE TEXTOOBS NVARCHAR(50);
+DECLARE NUMREGJDT INT;
+DECLARE JDTID INT;
+DECLARE RCVD NVARCHAR(50);
+DECLARE PAID NVARCHAR(50);
+
+RCVD = 'BOLETO RECEBIDO';
+PAID = 'BOLETO PAGO';
+
+SELECT COUNT(*) INTO NUMREGJDT FROM OJDT T0
+	INNER JOIN OBOT T1 ON T1."AbsEntry"= T0."BaseRef" 
+WHERE T1."AbsEntry" = :list_of_cols_val_tab_del AND T0."TransType" = '182'
+	and T1."StatusTo" = 'P';
+
+IF (:NUMREGJDT > 0)
+THEN
+	SELECT TOP 1 T0."TransId" INTO JDTID FROM OJDT T0
+			INNER JOIN OBOT T1 ON T1."AbsEntry"= T0."BaseRef" 
+		WHERE T1."AbsEntry" = :list_of_cols_val_tab_del AND T0."TransType" = '182'
+			and T1."StatusTo" = 'P'
+			ORDER BY T0."TransId" DESC;
+
+ 	SELECT 
+		TOP 1
+		CASE T2."BoeType" 
+			WHEN 'I' THEN :RCVD
+			WHEN 'O' THEN :PAID
+		END
+		INTO TEXTOOBS
+	FROM OJDT T0
+		INNER JOIN BOT1 T1 ON T1."AbsEntry"= T0."BaseRef"
+		INNER JOIN OBOE T2 ON T2."BoeNum" = T1."BOENumber"
+		INNER JOIN OBOT T3 ON T3."AbsEntry" = T1."AbsEntry"
+	WHERE T0."TransId" = :JDTID
+	and T3."StatusTo" = 'P'
+	and T0."TransType" = '182'
+	ORDER BY T0."TransId" DESC; 
+
+ 	Update OJDT 
+	set OJDT."Memo" = :TEXTOOBS 
+	where "TransId" = :JDTID ;
+	
+	IF (:TEXTOOBS = :RCVD)
+	THEN 
+		UPDATE JDT1
+		SET JDT1."LineMemo" = "Texts"."Txt"
+		FROM JDT1
+		INNER JOIN 
+			(SELECT LEFT('BT ' || T2."BoeNum" || ' NF ' || STRING_AGG(T7."Serial", ',') || ' ' || T2."CardName", 50) as "Txt", T4."Ref1", T4."TransId" 
+			FROM OJDT T0
+			INNER JOIN BOT1 T1 ON T1."AbsEntry"= T0."BaseRef"
+			INNER JOIN OBOE T2 ON T2."BoeNum" = T1."BOENumber"
+			INNER JOIN OBOT T3 ON T3."AbsEntry" = T1."AbsEntry"
+			INNER JOIN JDT1 T4 ON T4."TransId" = T0."TransId" AND T4."Ref1" = T2."BoeKey"
+			LEFT JOIN (ORCT T5  
+			INNER JOIN RCT2 T6 ON T6."DocNum" = T5."DocEntry"
+			INNER JOIN OINV T7 ON T7."DocEntry" = T6."DocEntry") ON T2."BoeNum" = T5."DocNum"
+			WHERE T0."TransId" = :JDTID
+			and T3."StatusTo" = 'P'
+			and T0."TransType" = '182'
+			and T4."DebCred" = 'C'
+			GROUP BY T2."BoeNum", T2."CardName", T4."Ref1", T4."TransId") "Texts" 
+		ON JDT1."Ref1" = "Texts"."Ref1" AND JDT1."TransId" = "Texts"."TransId";
+	ELSE
+		UPDATE JDT1
+		SET JDT1."LineMemo" = "Texts"."Txt"
+		FROM JDT1
+		INNER JOIN 
+			(SELECT LEFT('BT ' || T2."BoeNum" || ' NF ' || STRING_AGG(T7."Serial", ',') || ' ' || T2."CardName", 50) as "Txt", T4."Ref1", T4."TransId" 
+			FROM OJDT T0
+			INNER JOIN BOT1 T1 ON T1."AbsEntry"= T0."BaseRef"
+			INNER JOIN OBOE T2 ON T2."BoeNum" = T1."BOENumber"
+			INNER JOIN OBOT T3 ON T3."AbsEntry" = T1."AbsEntry"
+			INNER JOIN JDT1 T4 ON T4."TransId" = T0."TransId" AND T4."Ref1" = T2."BoeKey"
+			LEFT JOIN (OVPM T5  
+			INNER JOIN VPM2 T6 ON T6."DocNum" = T5."DocEntry"
+			INNER JOIN OPCH T7 ON T7."DocEntry" = T6."DocEntry") ON T2."BoeNum" = T5."DocNum"
+			WHERE T0."TransId" = :JDTID
+			and T3."StatusTo" = 'P'
+			and T0."TransType" = '182'
+			and T4."DebCred" = 'C'
+			GROUP BY T2."BoeNum", T2."CardName", T4."Ref1", T4."TransId") "Texts" 
+		ON JDT1."Ref1" = "Texts"."Ref1" AND JDT1."TransId" = "Texts"."TransId";
+	END IF;	
+END IF; 
+END IF;  
+ -------------------------------------------------------------------------------------------------------------------------
+ --Criado por: Alex Azevedo - SPS Consultoria
+ --Data:12/12/2017
+ --Descrição: Atualiza observação do diário no CR e no lançamento contábil
+ -------------------------------------------------------------------------------------------------------------------------
+ 
+IF (:object_type = '24' AND (:transaction_type='A')) 
+THEN 
+
+DECLARE TEXTO NVARCHAR(50);
+DECLARE CR INT;
+DECLARE RECCONTA INT;
+
+SELECT COUNT(*) INTO RECCONTA FROM ORCT WHERE ORCT."DocEntry" = :list_of_cols_val_tab_del AND ORCT."DocType" = 'A';
+
+IF (:RECCONTA = 0)
+
+THEN 
+
+SELECT
+	"fn_SPS_ObsCR"(:list_of_cols_val_tab_del) INTO TEXTO FROM DUMMY;
+	
+SELECT "DocNum" INTO CR FROM ORCT WHERE ORCT."DocEntry" = :list_of_cols_val_tab_del;
+
+UPDATE ORCT 
+SET ORCT."JrnlMemo" = :TEXTO 
+WHERE ORCT."DocEntry" = :list_of_cols_val_tab_del;
+
+ Update OJDT 
+set OJDT."Memo" = :TEXTO 
+where "BaseRef" = :CR 
+and "TransType"='24';
+
+Update JDT1
+set JDT1."LineMemo" = :TEXTO
+from JDT1
+join OJDT on JDT1."TransId" = OJDT."TransId"
+where OJDT."BaseRef" = :CR and OJDT."TransType"='24';
+
+END IF;
+END IF;
+
+ -------------------------------------------------------------------------------------------------------------------------
+ --SPS CONSULTORIA--
+ --Autor: Alex Azevedo - SPS Consultoria--
+ --Data: 12/12/2017--
+ --Titulo: Obrigatoriedade de Chave de acesso 44 caracteresNF Entrada--
+ --[OPCH] NOTA FISCAL DE ENTRADA--		
+ -------------------------------------------------------------------------------------------------------------------------
+ --CAMPO ->LENGTH("BankCode")<- TEMPORARIO, AGUARDANDO INSTALAÇÃO DO ADD-ON DA AGL PARA A CRIAÇÃO DE CAMPO "U_nfe_ChaveAcesso" NA TABELA
+ 
+ 
+IF (:object_type = '18' 
+	AND (:transaction_type='A' 
+		or :transaction_type='U')) 
+THEN Declare ChaveAcesso nvarchar (44)
+;
+ Declare Model nvarchar (10);
+ Declare SeqCode INT;
+
+DECLARE MEI INT;
+
+
+SELECT T1."GroupCode" INTO MEI FROM OPCH T0 JOIN OCRD T1 ON T0."CardCode" = T1."CardCode" WHERE T0."DocEntry" = :list_of_cols_val_tab_del;
+
+IF (MEI <> 106)
+
+THEN
+
+
+ Select
+	 LENGTH("U_chaveacesso") ,"SeqCode"
+INTO ChaveAcesso ,SeqCode
+from OPCH 
+where "DocEntry" =:list_of_cols_val_tab_del
+;
+ Select
+	 "Model" 
+INTO Model 
+from OPCH 
+where "DocEntry" =:list_of_cols_val_tab_del
+;
+ 
+IF (:ChaveAcesso = '' 
+	OR :ChaveAcesso is null 
+	AND :Model=39 and :SeqCode= -2) 
+THEN error =-1
+;
+ error_Message = '[SPS-003] - Chave de acesso não preenchida'
+;
+ 
+END 
+IF
+;
+ 
+IF (:ChaveAcesso < 44 
+	and :Model=39 and :SeqCode= -2 ) 
+THEN error =-1
+;
+ error_Message = '[SPS-003] - Falta numeros na chave de acesso'
+;
+ 
+END 
+IF
+;
+ 
+IF (:ChaveAcesso > 44 
+	and :Model=39 and :SeqCode= -2) 
+THEN error =-1
+;
+ error_Message = '[SPS-003] - Numeros na chave de acesso em excesso'
+;
+ 
+END IF;
+
+END IF;
+ 
+END IF;
+ -------------------------------------------------------------------------------------------------------------------------
+ -- DESCRIÇÃO:	Definir obs. do diário / Nº da nota 
+ -- CRIADO POR:	Alex Azevedo - SPS Consultoria
+ -- CRIADO EM:	17/12/2017
+ -- DOCUMENTOS:	Documentos de COMPRA E VENDAS / ENTRADA E SAIDA DE MERCADORIA
+ -------------------------------------------------------------------------------------------------------------------------
+ 
+IF ((      :object_type = '13' 
+		OR :object_type = '14' 
+		OR :object_type = '15' 
+		OR :object_type = '16' 
+		OR :object_type = '18' 
+		OR :object_type = '19' 
+		OR :object_type = '20' 
+		OR :object_type = '21' 
+		OR :object_type = '59' 
+		OR :object_type = '60') 
+	AND (:transaction_type='A'or :transaction_type='U')) 
+THEN CALL "SPS_OBS" (:object_type, :list_of_cols_val_tab_del);	 
+ 
+END 
+IF
+;
+
+
+---------------------------------------------------------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------------------------------------------
+
+--Autor: Alex Azevedo
+--Documento: Pedido de compra - ESBOCO
+--Data de criação: 24/02/2022
+--Descrição: bloqueia ESBOÇO DE PEDIDO DE COMPRA SEM PREECHIMENTO DE CAMPO OBRIGATORIO
+--COMENTÁRIO: NÃO EXCLUIR
+-------------------------------------------------------------------------------------------------------------------
+ 
+IF (:object_type = '112' AND (:transaction_type = 'A' or :transaction_type = 'U')) 
+THEN 
+	
+	DECLARE Acctdrf INT;
+	DECLARE imp INT;
+	DECLARE vend INT;
+	DECLARE Util INT;
+	DECLARE CC INT;
+	DECLARE CC2 INT;
+		
+	SELECT
+		 count(*)
+ INTO Acctdrf 
+	FROM 
+		ODRF T0
+		JOIN DRF1 T1 ON T0."DocEntry" = T1."DocEntry"
+	    WHERE
+        (T1."OcrCode" IS NULL OR T1."OcrCode2" IS NULL)
+        AND T0."DataSource" <> 'N'
+        AND T1."DocEntry" = :list_of_cols_val_tab_del
+		AND T0."ObjType" IN ('22');
+	
+	
+	SELECT
+		 count(*)
+ INTO CC 
+	FROM 
+		ODRF T0
+		JOIN DRF1 T1 ON T0."DocEntry" = T1."DocEntry"
+	where
+		T0."DocEntry" = :list_of_cols_val_tab_del
+		and IFNULL(T1."OcrCode", -1) = -1
+		AND T0."ObjType" IN ('22');
+
+	SELECT
+		 count(*)
+ INTO CC2 
+	FROM 
+		ODRF T0
+		JOIN DRF1 T1 ON T0."DocEntry" = T1."DocEntry"
+	where
+		T0."DocEntry" = :list_of_cols_val_tab_del
+		and IFNULL(T1."OcrCode2", -1) = -1
+		AND T0."ObjType" IN ('22');
+
+	SELECT
+		 count(*)
+ INTO imp 
+	FROM 
+		ODRF T0
+		JOIN DRF1 T1 ON T0."DocEntry" = T1."DocEntry"
+	where
+		T0."DocEntry" = :list_of_cols_val_tab_del
+		and IFNULL(T1."TaxCode",'') = ''
+		AND T0."ObjType" IN ('22');
+	
+	SELECT
+		 count(*)
+ INTO vend 
+	FROM 
+		ODRF T0
+		JOIN DRF1 T1 ON T0."DocEntry" = T1."DocEntry"
+	where
+		T0."DocEntry" = :list_of_cols_val_tab_del
+		and IFNULL(T0."SlpCode",-1) = -1
+		AND T0."ObjType" IN ('22');
+	
+	SELECT
+		 count(*)
+ INTO Util 
+	FROM 
+		ODRF T0
+		JOIN DRF1 T1 ON T0."DocEntry" = T1."DocEntry"
+	where
+		T0."DocEntry" = :list_of_cols_val_tab_del
+		and IFNULL(T1."Usage",-1) = -1
+		AND T0."ObjType" IN ('22');
+	 
+	IF (:Acctdrf > 0) 
+	THEN 
+	error := '171';
+	error_message := '[SPS] - ERRO AO INSERIR O PEDIDO DE COMPRA - ESBOCO - FALTA CONTA CONTÁBIL EM UMA DAS LINHAS';
+	END IF;
+	
+	IF (:imp > 0) 
+	THEN 
+	error := '171';
+	error_message := '[SPS] - ERRO AO INSERIR O PEDIDO DE COMPRA - ESBOCO - FALTA CODIGO DE IMPOSTO EM UMA DAS LINHAS';
+	END IF;
+	
+	IF (:vend > 0) 
+	THEN 
+	error := '171';
+	error_message := '[SPS] - ERRO AO INSERIR O PEDIDO DE COMPRA - ESBOCO - COMPRADOR';
+	END IF;
+	
+	IF (:Util > 0) 
+	THEN 
+	error := '171';
+	error_message := '[SPS] - ERRO AO INSERIR O PEDIDO DE COMPRA - ESBOCO - FALTA UTILIZAÇÃO EM UMA DAS LINHAS';
+	END IF;
+	
+		IF (:CC > 0) 
+	THEN 
+	error := '171';
+	error_message := '[SPS] - ERRO AO INSERIR O PEDIDO DE COMPRA - ESBOCO - FALTA DEPARTAMENTO';
+	END IF;
+	
+		IF (:CC2 > 0) 
+	THEN 
+	error := '171';
+	error_message := '[SPS] - ERRO AO INSERIR O PEDIDO DE COMPRA - ESBOCO - FALTA PROJETO';
+	END IF;	
+	
+	
+	
+END IF;
+
+-----------------------------------------------------------------------------------------------------------------------------
+
+
+------------------------------------------------------------------------------------------------------------------------------------			
+
+--Autor: Alex Azevedo
+--Documento: Pedido de compra
+--Data de criação: 26/03/2019
+--Descrição: bloqueia entrada pedido de compra sem conta contabil
+ 
+IF (:object_type = '22' AND (:transaction_type = 'A' or :transaction_type = 'U')) 
+THEN 
+	
+	DECLARE Acctdrf INT;
+	DECLARE imp INT;
+	DECLARE vend INT;
+	DECLARE Util INT;
+		
+	SELECT
+		 count(*) INTO Acctdrf 
+	FROM 
+		OPOR T0
+		JOIN POR1 T1 ON T0."DocEntry" = T1."DocEntry"
+	where
+		T0."DocEntry" = :list_of_cols_val_tab_del
+		and IFNULL(T1."AcctCode",'') = '';
+	
+		
+	SELECT
+		 count(*) INTO imp 
+FROM 
+		OPOR T0
+		JOIN POR1 T1 ON T0."DocEntry" = T1."DocEntry"
+	where
+		T0."DocEntry" = :list_of_cols_val_tab_del
+		and IFNULL(T1."TaxCode",'') = '';
+		
+	
+	SELECT
+		 count(*) INTO vend 
+	FROM 
+		OPOR T0
+		JOIN POR1 T1 ON T0."DocEntry" = T1."DocEntry"
+	where
+		T0."DocEntry" = :list_of_cols_val_tab_del
+		and IFNULL(T0."SlpCode",-1) = -1;
+	
+	SELECT
+		 count(*) INTO Util 
+	FROM 
+		OPOR T0
+		JOIN POR1 T1 ON T0."DocEntry" = T1."DocEntry"
+	where
+		T0."DocEntry" = :list_of_cols_val_tab_del
+		and IFNULL(T1."Usage",-1) = -1;
+	 
+	IF (:Acctdrf > 0) 
+	THEN 
+	error := '112';
+	error_message := '[SPS] - ERRO AO INSERIR O PEDIDO DE COMPRA -  FALTA CONTA CONTÁBIL EM UMA DAS LINHAS';
+	END IF;
+	
+	IF (:imp > 0) 
+	THEN 
+	error := '112';
+	error_message := '[SPS] - ERRO AO INSERIR O PEDIDO DE COMPRA -  FALTA CODIGO DE IMPOSTO EM UMA DAS LINHAS';
+	END IF;
+	
+	IF (:vend > 0) 
+	THEN 
+	error := '112';
+	error_message := '[SPS] - ERRO AO INSERIR O PEDIDO DE COMPRA -  COMPRADOR';
+	END IF;
+	
+	IF (:Util > 0) 
+	THEN 
+	error := '112';
+	error_message := '[SPS] - ERRO AO INSERIR O PEDIDO DE COMPRA - FALTA UTILIZAÇÃO EM UMA DAS LINHAS';
+	END IF;
+	
+END IF;
+
+
+
+-------------------------------------------------------------------------------------------------------------------
+--Autor: Alex Azevedo
+--Documento: Solicitação de compra - ESBOCO
+--Data de criação: 27/01/2023
+--Descrição: bloqueia ESBOÇO DE SOLICITACAO DE COMPRA SEM PREECHIMENTO DE CAMPO OBRIGATORIO
+--COMENTÁRIO: NÃO EXCLUIR
+-------------------------------------------------------------------------------------------------------------------
+ 
+IF (:object_type = '112' AND (:transaction_type = 'A' or :transaction_type = 'U')) 
+THEN 
+	
+	--DECLARE Acctdrf INT;
+	--DECLARE imp INT;
+	--DECLARE vend INT;
+	DECLARE Util INT;
+	DECLARE CC INT;
+	DECLARE CC2 INT;
+	/*	
+	SELECT
+		 count(*)
+ INTO Acctdrf 
+	FROM 
+		ODRF T0
+		JOIN DRF1 T1 ON T0."DocEntry" = T1."DocEntry"
+	    WHERE
+        (T1."OcrCode" IS NULL OR T1."OcrCode2" IS NULL)
+        AND T0."DataSource" <> 'N'
+        AND T1."DocEntry" = :list_of_cols_val_tab_del
+		AND T0."ObjType" IN ('1470000113');
+	
+	*/
+	SELECT
+		 count(*)
+ INTO CC 
+	FROM 
+		ODRF T0
+		JOIN DRF1 T1 ON T0."DocEntry" = T1."DocEntry"
+	where
+		T0."DocEntry" = :list_of_cols_val_tab_del
+		and IFNULL(T1."OcrCode", -1) = -1
+		AND T0."ObjType" IN ('1470000113');
+
+	SELECT
+		 count(*)
+ INTO CC2 
+	FROM 
+		ODRF T0
+		JOIN DRF1 T1 ON T0."DocEntry" = T1."DocEntry"
+	where
+		T0."DocEntry" = :list_of_cols_val_tab_del
+		and IFNULL(T1."OcrCode2", -1) = -1
+		AND T0."ObjType" IN ('1470000113');
+/*
+	SELECT
+		 count(*)
+ INTO imp 
+	FROM 
+		ODRF T0
+		JOIN DRF1 T1 ON T0."DocEntry" = T1."DocEntry"
+	where
+		T0."DocEntry" = :list_of_cols_val_tab_del
+		and IFNULL(T1."TaxCode",'') = ''
+		AND T0."ObjType" IN ('1470000113');
+*/
+	/*
+	SELECT
+		 count(*)
+ INTO vend 
+	FROM 
+		ODRF T0
+		JOIN DRF1 T1 ON T0."DocEntry" = T1."DocEntry"
+	where
+		T0."DocEntry" = :list_of_cols_val_tab_del
+		and IFNULL(T0."SlpCode",-1) = -1
+		AND T0."ObjType" IN ('1470000113');
+	*/
+	SELECT
+		 count(*)
+ INTO Util 
+	FROM 
+		ODRF T0
+		JOIN DRF1 T1 ON T0."DocEntry" = T1."DocEntry"
+	where
+		T0."DocEntry" = :list_of_cols_val_tab_del
+		and IFNULL(T1."Usage",-1) = -1
+		AND T0."ObjType" IN ('1470000113');
+	/* 
+	IF (:Acctdrf > 0) 
+	THEN 
+	error := '171';
+	error_message := '[SPS] - ERRO AO INSERIR A SOLICITACAO DE COMPRA - ESBOCO - FALTA CONTA CONTÁBIL EM UMA DAS LINHAS';
+	END IF;
+	*/
+	/*
+	IF (:imp > 0) 
+	THEN 
+	error := '171';
+	error_message := '[SPS] - ERRO AO INSERIR A SOLICITACAO DE COMPRA - ESBOCO - FALTA CODIGO DE IMPOSTO EM UMA DAS LINHAS';
+	END IF;
+    */
+	/*
+	IF (:vend > 0) 
+	THEN 
+	error := '171';
+	error_message := '[SPS] - ERRO AO INSERIR A SOLICITACAO DE COMPRA - ESBOCO - COMPRADOR';
+	END IF;
+	*/
+	IF (:Util > 0) 
+	THEN 
+	error := '171';
+	error_message := '[SPS] - ERRO AO INSERIR A SOLICITACAO DE COMPRA - ESBOCO - FALTA UTILIZAÇÃO EM UMA DAS LINHAS';
+	END IF;
+	
+		IF (:CC > 0) 
+	THEN 
+	error := '171';
+	error_message := '[SPS] - ERRO AO INSERIR A SOLICITACAO DE COMPRA - ESBOCO - FALTA DEPARTAMENTO';
+	END IF;
+	
+		IF (:CC2 > 0) 
+	THEN 
+	error := '171';
+	error_message := '[SPS] - ERRO AO INSERIR A SOLICITACAO DE COMPRA - ESBOCO - FALTA PROJETO';
+	END IF;	
+	
+	
+	
+END IF;
+--------------------------------------------------------------------------------------------------------------------------
+
+END;
