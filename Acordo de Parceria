@@ -1,0 +1,64 @@
+
+CREATE PROCEDURE SP_SPS_ACORDO_PARCERIA_MAIN (DocKey int) AS BEGIN
+
+SELECT
+	T0."U_CardCode" "CodPN",
+	T0."U_CardName" "DescPN",
+	T0."U_Date_Begin" "DataInicioContrato",
+	T0."U_Date_End" "DataFimContrato",
+	T0."U_Signing_Date" "DataDaAssinatura",
+	T0."U_Termination_Date" "DataDeRecisao",
+	T0."U_Description" "Descricao",
+	T0."U_Comments" "Observacao",
+	T0."U_Contract_Duration" "duracaoContratoNumerico",
+	getNumberDescription(T0."U_Contract_Duration") "duracaoContratoAlfanumerico",
+	T8."TaxId0" "CNPJ",
+	T3."AliasName" "nomeFantasia",
+	--T0."U_Region" "Regiao",
+	T0."U_Equipment_Quantity" "NoEquipamentosNumerico",
+	getNumberDescription(T0."U_Equipment_Quantity") "NoEquipamentosAlfanumerico",
+	IFNULL(T0."U_INTERVENIENTES",'') "INTERVENIENTES",
+	------------
+	T4."AddrType" "tipoRuaPN",
+	T4."Street" "ruaPN",
+	T4."StreetNo" "numeroRuaPN",
+	T4."Block" "bairroPN",
+	T4."City" "cidadePN",
+	T5."Name" "estadoPN",
+	T4."ZipCode" "cepPN",
+	------------
+	T2."FirstName" || ' ' || T2."LastName" "nomePessoaContato",
+	T2."U_SPS_CPF" "CPFPessoaContato",
+	T2."U_SPS_RG" "RGPessoaContato",
+	T6."AddrType" "tipoRuaPessoaContato",
+	T6."Street" "ruaPessoaContato",
+	T6."StreetNo" "numeroRuaPessoaContato",
+	T6."Block" "bairroPessoaContato",
+	T6."City" "cidadePessoaContato",
+	T7."Name" "estadoPessoaContato",
+	T6."ZipCode" "cepPessoaContato",
+	Z1."U_SPS_Regiao" "Região"
+	------------
+	
+FROM
+	"@SPS_ACO_PARCERIA_H" T0
+	INNER JOIN "@SPS_ACO_PARCERIA_L2" Z1 ON T0."DocEntry" = Z1."DocEntry"
+	--INNER JOIN "@SPS_ACO_PARCERIA_L1" T1 ON T0."DocEntry" = T1."DocEntry"
+	LEFT JOIN "OCPR" T2 ON T0."U_CntctPrsn" = T2."CntctCode"
+	INNER JOIN "OCRD" T3 ON T0."U_CardCode" = T3."CardCode"
+	LEFT JOIN "CRD1" T4 ON T3."CardCode" = T4."CardCode"
+						AND T3."BillToDef" = T4."Address"
+	LEFT JOIN "OCST" T5 ON T4."Country" = T5."Country"
+						AND T4."State" = T5."Code"
+	LEFT JOIN "CRD1" T6 ON T3."CardCode" = T6."CardCode"
+						AND T2."CnnectAddr" = T6."Address"
+	LEFT JOIN "OCST" T7 ON T6."Country" = T7."Country"
+						AND T6."State" = T7."Code"
+	LEFT JOIN "CRD7" T8 ON T3."CardCode" = T8."CardCode"
+						AND T3."ShipToDef" = T8."Address"
+
+WHERE
+	T0."DocEntry" = DocKey;
+
+	
+END
