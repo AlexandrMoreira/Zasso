@@ -1,5 +1,5 @@
-
 CREATE PROCEDURE SP_SPS_ACORDO_PARCERIA_MAIN (DocKey int) AS BEGIN
+
 
 SELECT
 	T0."U_CardCode" "CodPN",
@@ -37,7 +37,10 @@ SELECT
 	T6."City" "cidadePessoaContato",
 	T7."Name" "estadoPessoaContato",
 	T6."ZipCode" "cepPessoaContato",
-	Z1."U_SPS_Regiao" "Região"
+	Z1."U_SPS_Regiao" "Região",
+	Z1."U_City_Name" "Cidade",
+	Z1."U_City_Population" "População",
+	T0."U_Description" "Descrição"
 	------------
 	
 FROM
@@ -56,6 +59,8 @@ FROM
 						AND T6."State" = T7."Code"
 	LEFT JOIN "CRD7" T8 ON T3."CardCode" = T8."CardCode"
 						AND T3."ShipToDef" = T8."Address"
+						
+					
 
 WHERE
 	T0."DocEntry" = DocKey;
