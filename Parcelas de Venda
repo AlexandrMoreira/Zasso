@@ -1,0 +1,33 @@
+CREATE PROCEDURE SP_SPS_PARCELAS_VENDA (
+
+IN DocKey int
+
+)
+
+AS
+BEGIN
+
+
+SELECT 
+
+	T0."DocNum" "Proposta Nº",
+	T0."CardName" "Nome Cliente",
+	T1."PymntGroup" "CondiçãoPgto",
+	(T2."InstPrcnt")/100 "Parcelas",
+	CAST(ROUND((T0."DocTotal") * (T2."InstPrcnt")/100) AS DECIMAL (28,2)) AS "Valor_Parcelas",
+	T2."InstPrcnt" "Porc.",
+	ROUND(T2."InstDays",0) "Dias"
+	--T3."Dscription" "DescriçãoItem"
+	
+	
+	
+FROM OQUT T0
+INNER JOIN OCTG T1 ON T0."GroupNum" = T1."GroupNum"
+LEFT JOIN CTG1 T2 ON T1."GroupNum" = T2."CTGCode"
+--INNER JOIN QUT1 T3 ON T0."DocEntry" = T3."DocEntry"
+
+
+WHERE T0."DocEntry" = :DocKey;
+
+
+END;
