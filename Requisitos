@@ -1,0 +1,25 @@
+CREATE PROCEDURE SP_SPS_REQUISITOS (
+
+IN DocKey int
+
+)
+
+AS
+BEGIN
+
+SELECT 
+	DISTINCT 
+	TO_VARCHAR(T4."U_SPS_ReqGeral") "Req1",
+	TO_VARCHAR(T4."U_SPS_ReqImple") "Req2",
+	T4."ItemName" "Equip",
+	(SELECT MIN(TO_VARCHAR("BitmapPath")) FROM OADP)||T4."PicturName" "PicturName"
+FROM OQUT T0
+INNER JOIN QUT1 T3 ON T0."DocEntry" = T3."DocEntry"
+INNER JOIN OSLP T1 ON T0."SlpCode" = T1."SlpCode"
+LEFT JOIN OCPR T2 ON T0."CntctCode" = T2."CntctCode"
+INNER JOIN OITM T4 ON T3."ItemCode" = T4."ItemCode"	
+
+WHERE T0."DocEntry" = :DocKey;
+
+
+END;
