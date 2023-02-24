@@ -1,0 +1,63 @@
+CREATE PROCEDURE SP_SPS_LAYOUT_CONT_VENDA (
+
+IN DocKey int
+
+)
+
+AS
+BEGIN
+
+
+
+
+
+SELECT 
+
+	T0."DocNum" "NºMinuta",
+	T0."DocDate" "Ano",
+	T0."CardName" "Cliente",
+	T1."Password" "CNPJ",
+	T2."AddrTypeB" ||' '||T2."StreetB" ||', nº '|| T2."StreetNoB" "Endereço",
+	T5."Name" "Estado",
+	T4."ZipCode" "CEP",
+	T4."City" "Cidade",
+	T3."FirstName" "Nome",
+	T3."LastName" "Sobrenome",
+	T3."U_SPS_RG" "RG",
+	T3."U_SPS_CPF" "CPF",
+	T3."Address" "End.Pessoa.Contato",
+	
+	T8."PymntGroup" ||'/'|| T0."PeyMethod" "FormaPgto",
+	
+	
+	T7."ItemName" "Equipamento",
+	
+	T0."DocTotal" "ValorTotal",
+	
+	T6."SerialNum" "NºSérie",
+	T0."U_SPS_Setor" "Setor"
+
+	
+	
+FROM ORDR T0
+
+INNER JOIN OCRD T1 ON T0."CardCode" = T1."CardCode"
+LEFT JOIN RDR12 T2 ON T0."DocEntry" = T2."DocEntry"
+LEFT JOIN OCPR T3 ON T0."CardCode" = T3."CardCode"
+	AND T1."CntctPrsn" = T3."Name"
+INNER JOIN CRD1 T4 ON T1."CardCode" = T4."CardCode"
+	AND T1."BillToDef" = T4."Address"
+INNER JOIN OCST T5 ON T4."State" = T5."Code"	
+INNER JOIN RDR1 T6 ON T0."DocEntry" = T6."DocEntry"
+INNER JOIN OITM T7 ON T6."ItemCode" = T7."ItemCode"
+LEFT JOIN OCTG T8 ON T0."GroupNum" = T8."GroupNum"
+
+
+
+--ORDER BY T0."DocNum"
+
+WHERE
+
+T0."DocNum" = :DocKey;
+
+END;
