@@ -1,0 +1,56 @@
+CREATE PROCEDURE SP_SPS_LAYOUT_CONT_ALUGUEL (
+
+IN DocKey int
+
+)
+
+AS
+BEGIN
+
+
+SELECT 
+
+	T0."AbsID",
+	T0."BpName" "Empresa",
+	T1."Password" "CNPJ",
+	T2."AddrType" ||' '|| T2."Street" ||', nº '|| T2."StreetNo" "Endereço da sede",
+	T3."FirstName" || ' '|| T3."LastName" "Nome",
+	T3."U_SPS_RG" "RG",
+	T3."U_SPS_CPF" "CPF",
+	T3."Address" "Endereço_Responsável",
+	T4."ItemName" "Equipamento",
+	--T5."U_SPS_No_Serie" "NºdeSérie",
+	T0."Number" "Nº_Proposta Comercial",
+	T0."StartDate" "Ano_Proposta Comercial",
+	T0."StartDate" "Data_Início",
+	MONTHS_BETWEEN(TO_DATE(T0."StartDate"), TO_DATE(T0."EndDate"))||' Meses' "Prazo",
+	T4."UnitPrice" "Valor_Unitário",
+	T0."PayMethod" ||'/'|| T0."GroupNum" "Forma+Cond_Pgto",
+	T0."SignDate" "Data",
+	T0."GroupNum" "DiasPgto",
+	T6."City" ||', '|| T6."State" "Local",
+	T5."U_SPS_Modelo" "Modelo",
+	--(SELECT STRING_AGG(TO_VARCHAR(A0."U_SPS_Modelo"),',') 
+		--FROM OAT1 A1 INNER JOIN OITM A0 ON A0."ItemCode" = A1."ItemCode" 
+			--WHERE T0."AbsID" = A1."AgrNo" and A0."U_SPS_Modelo" is not null) "Modelo",
+	T4."U_beas_ver" "NºSérie"
+	
+		
+
+FROM OOAT T0
+INNER JOIN OCRD T1 ON T0."BpCode" = T1."CardCode"
+INNER JOIN CRD1 T2 ON T1."CardCode" = T2."CardCode"
+LEFT JOIN OCPR T3 ON T0."BpCode" = T3."CardCode"
+	AND T1."CntctPrsn" = T3."Name"
+LEFT JOIN OAT1 T4 ON T0."AbsID" = T4."AgrNo"
+INNER JOIN OITM T5 ON T4."ItemCode" = T5."ItemCode"
+INNER JOIN ADM1 T6 ON 1=1	
+
+WHERE T2."Address" = 'COBRANCA'
+	AND T4."ItemName" is not null
+	
+AND
+
+T0."AbsID" = :DocKey;
+
+END;
